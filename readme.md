@@ -92,7 +92,7 @@ sudo /opt/bitnami/ctlscript.sh start apache
 ---
 ### Note: Make sure to restart Apache after running issue/renew commands 
 ```bash
-sudo /opt/bitnami/ctlscript.sh restart
+sudo /opt/bitnami/ctlscript.sh restart apache
 ```
 
 ## Step 6: Verify Certificates
