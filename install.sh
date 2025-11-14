@@ -107,13 +107,13 @@ echo -e "${GREEN}✓ Permissions set${NC}"
 echo -e "${BLUE}Installing main script...${NC}"
 
 # Download the main script from GitHub
-if wget -q https://raw.githubusercontent.com/abdullai-t/my-script/main/ssl-manager.sh -O "$INSTALL_DIR/ssl-manager.sh"; then
+if wget -q https://raw.githubusercontent.com/massenergize/ssl-manager/main/ssl-manager.sh -O "$INSTALL_DIR/ssl-manager.sh"; then
     chmod 750 "$INSTALL_DIR/ssl-manager.sh"
     echo -e "${GREEN}✓ Main script downloaded and installed${NC}"
 else
     echo -e "${RED}✗ Failed to download main script${NC}"
     echo -e "${YELLOW}Please manually download ssl-manager.sh to $INSTALL_DIR/${NC}"
-    echo -e "${YELLOW}wget https://raw.githubusercontent.com/abdullai-t/my-script/main/ssl-manager.sh -O $INSTALL_DIR/ssl-manager.sh${NC}"
+    echo -e "${YELLOW}wget https://raw.githubusercontent.com/massenergize/ssl-manager/main/ssl-manager.sh -O $INSTALL_DIR/ssl-manager.sh${NC}"
     echo -e "${YELLOW}Then run: chmod 750 $INSTALL_DIR/ssl-manager.sh${NC}"
 fi
 

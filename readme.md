@@ -18,7 +18,7 @@ Complete SSL certificate automation for AWS Lightsail WordPress Multisite in und
 ## Step 2: Install SSL Manager (One Command)
 
 ```bash
-wget https://raw.githubusercontent.com/abdullai-t/my-script/main/install.sh && \
+wget https://raw.githubusercontent.com/massenergize/ssl-manager/main/install.sh && \
 chmod +x install.sh && \
 sudo ./install.sh
 ```
@@ -235,7 +235,7 @@ sudo nano /opt/ssl-manager/config/settings.conf
 
 | What | Command |
 |------|---------|
-| **Install** | `wget https://raw.githubusercontent.com/abdullai-t/my-script/main/install.sh && chmod +x install.sh && sudo ./install.sh` |
+| **Install** | `wget https://raw.githubusercontent.com/massenergize/ssl-manager/main/install.sh && chmod +x install.sh && sudo ./install.sh` |
 | **Issue cert** | `ssl-manager issue domain.com` |
 | **List certs** | `ssl-manager list` |
 | **Renew all** | `ssl-manager renew-all` |
@@ -348,9 +348,9 @@ A: `/bitnami/wordpress/wp-content/certbot/config/backup/`
 
 ## 📞 Support & Resources
 
-- **Full Documentation:** [GitHub README](https://github.com/abdullai-t/my-script)
-- **Script Source:** [ssl-manager.sh](https://github.com/abdullai-t/my-script/blob/main/ssl-manager.sh)
-- **Installation Script:** [install.sh](https://github.com/abdullai-t/my-script/blob/main/install.sh)
+- **Full Documentation:** [GitHub README](https://github.com/massenergize/ssl-manager/blob/main/README.md)
+- **Script Source:** [ssl-manager.sh](https://github.com/massenergize/ssl-manager/blob/main/ssl-manager.sh)
+- **Installation Script:** [install.sh](https://github.com/massenergize/ssl-manager/blob/main/install.sh)
 - **Let's Encrypt Docs:** [letsencrypt.org/docs](https://letsencrypt.org/docs/)
 - **Certbot Docs:** [certbot.eff.org/docs](https://certbot.eff.org/docs/)
 
