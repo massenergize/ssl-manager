@@ -81,9 +81,9 @@ ssl-manager issue staging.yourdomain.com
 sudo /opt/bitnami/ctlscript.sh stop apache
 
 # Issue all certificates
-ssl-manager issue yourdomain.com --no-restart
-ssl-manager issue www.yourdomain.com --no-restart
-ssl-manager issue dev.yourdomain.com --no-restart
+ssl-manager issue yourdomain.com 
+ssl-manager issue www.yourdomain.com 
+ssl-manager issue dev.yourdomain.com 
 
 # Start Apache once
 sudo /opt/bitnami/ctlscript.sh start apache
