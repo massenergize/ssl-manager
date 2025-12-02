@@ -389,9 +389,9 @@ create_ssl_vhost() {
   SSLCertificateChainFile "/bitnami/wordpress/wp-content/certbot/config/live/${domain}/chain.pem"
 
   # Force HTTPS redirect
-  RewriteEngine On
-  RewriteCond %{HTTPS} !=on
-  RewriteRule ^/(.*) https://%{SERVER_NAME}/\$1 [R,L]
+  #RewriteEngine On
+  #RewriteCond %{HTTPS} !=on
+  #RewriteRule ^/(.*) https://%{SERVER_NAME}/\$1 [R,L]
 
   <Directory "/opt/bitnami/wordpress">
     Options -Indexes +FollowSymLinks -MultiViews
