@@ -212,7 +212,7 @@ CRON_FILE="/etc/cron.d/ssl-manager"
 cat > "$CRON_FILE" <<EOF
 # SSL Manager Auto-Renewal
 # Runs daily at 2:00 AM
-0 2 * * * root $INSTALL_DIR/ssl-manager.sh renew-all >> $INSTALL_DIR/logs/cron.log 2>&1
+0 2 * * 0 root $INSTALL_DIR/ssl-manager.sh renew-all >> $INSTALL_DIR/logs/cron.log 2>&1
 EOF
 
 chmod 644 "$CRON_FILE"
@@ -298,7 +298,7 @@ SSLSessionCache "shmcb:/opt/bitnami/apache/logs/ssl_scache(512000)"
 SSLSessionCacheTimeout  300
 
 
-IncludeOptional /opt/bitnami/apache2/conf/vhosts/*.conf
+# IncludeOptional /opt/bitnami/apache2/conf/vhosts/*.conf
 EOF
 
 echo -e "${GREEN}✓ Apache SSL configuration updated${NC}"

@@ -657,6 +657,7 @@ renew_all_certificates() {
     # Stop Apache once if using standalone
     if [ "$CHALLENGE_METHOD" = "standalone" ]; then
         stop_apache
+        APACHE_WAS_STOPPED=true
     fi
     
     while IFS= read -r domain; do
@@ -684,8 +685,17 @@ renew_all_certificates() {
         fi
     done < "$DOMAINS_FILE"
     
-    # Start Apache after all renewals
-    start_apache
+    # Only restart/start Apache if certificates were actually renewed OR if we stopped it for standalone
+    if [ "$renewed" -gt 0 ] || [ "$APACHE_WAS_STOPPED" = true ]; then
+        if [ "$renewed" -gt 0 ]; then
+            log INFO "Certificates renewed, restarting Apache to apply changes..."
+        else
+            log INFO "No certificates renewed, but restarting Apache (was stopped for standalone mode)..."
+        fi
+        start_apache
+    else
+        log INFO "No certificates renewed and Apache was not stopped, skipping Apache restart"
+    fi
     
     log INFO "Renewal complete. Renewed: $renewed, Failed: $failed, Skipped: $skipped"
     
