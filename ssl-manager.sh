@@ -33,6 +33,7 @@ SKIP_WEBROOT_CHECK=false
 AUTO_APACHE_RESTART=true
 APACHE_CTL="/opt/bitnami/ctlscript.sh"
 APACHE_VHOSTS_DIR="/opt/bitnami/apache2/conf/vhosts"
+CONFIRM=false
 
 # Colors for output
 RED='\033[0;31m'
@@ -866,6 +867,137 @@ list_certificates() {
     fi
 }
 
+get_multisite_domains() {
+    if ! command -v wp >/dev/null 2>&1; then
+        error_exit "wp-cli not found. Install wp-cli or add it to PATH to use multisite domain audit." 10
+    fi
+
+    if ! wp core is-installed --path="$WEBROOT" --allow-root >/dev/null 2>&1; then
+        error_exit "WordPress is not installed or not accessible at $WEBROOT" 10
+    fi
+
+    local multisite_enabled
+    multisite_enabled=$(wp config get MULTISITE --type=constant --path="$WEBROOT" --allow-root 2>/dev/null || echo "false")
+    if [ "$multisite_enabled" != "true" ]; then
+        error_exit "WordPress Multisite is not enabled at $WEBROOT" 10
+    fi
+
+    wp site list --field=domain --path="$WEBROOT" --allow-root 2>/dev/null | \
+        sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | \
+        tr '[:upper:]' '[:lower:]' | \
+        sed '/^$/d' | sort -u
+}
+
+audit_unused_domains() {
+    log INFO "Auditing managed certificate domains against active WordPress Multisite domains..."
+
+    if [ ! -f "$DOMAINS_FILE" ]; then
+        log WARN "No managed domains found at $DOMAINS_FILE"
+        if [ "$JSON_OUTPUT" = true ]; then
+            json_output true "all" "audit-unused" "No managed domains found"
+        fi
+        return 0
+    fi
+
+    local managed_tmp
+    local multisite_tmp
+    local unused_tmp
+    managed_tmp=$(mktemp)
+    multisite_tmp=$(mktemp)
+    unused_tmp=$(mktemp)
+
+    sed 's/^[[:space:]]*//;s/[[:space:]]*$//' "$DOMAINS_FILE" | \
+        tr '[:upper:]' '[:lower:]' | \
+        sed '/^$/d' | sort -u > "$managed_tmp"
+
+    get_multisite_domains > "$multisite_tmp"
+
+    comm -23 "$managed_tmp" "$multisite_tmp" > "$unused_tmp"
+
+    local managed_count
+    local multisite_count
+    local unused_count
+    managed_count=$(wc -l < "$managed_tmp")
+    multisite_count=$(wc -l < "$multisite_tmp")
+    unused_count=$(wc -l < "$unused_tmp")
+
+    if [ "$JSON_OUTPUT" = false ]; then
+        log INFO "Managed domains: $managed_count"
+        log INFO "Active multisite domains: $multisite_count"
+        log INFO "Potentially unused managed domains: $unused_count"
+
+        if [ "$unused_count" -gt 0 ]; then
+            log WARN "Domains tracked by this script but not present in WordPress Multisite:"
+            while IFS= read -r domain; do
+                [ -z "$domain" ] && continue
+                echo "  - $domain"
+            done < "$unused_tmp"
+            echo
+            log INFO "Review before cleanup. To remove from tracking/vhost files: $(basename "$0") cleanup-unused --confirm"
+        else
+            log SUCCESS "No unused managed domains detected"
+        fi
+    else
+        local msg="Managed: $managed_count, Multisite: $multisite_count, Unused: $unused_count"
+        json_output true "all" "audit-unused" "$msg"
+    fi
+
+    rm -f "$managed_tmp" "$multisite_tmp" "$unused_tmp"
+    return 0
+}
+
+cleanup_unused_domains() {
+    log INFO "Preparing cleanup of unused managed domains..."
+
+    if [ "$CONFIRM" != true ]; then
+        error_exit "cleanup-unused requires --confirm to proceed" 2
+    fi
+
+    if [ ! -f "$DOMAINS_FILE" ]; then
+        log WARN "No managed domains found at $DOMAINS_FILE"
+        return 0
+    fi
+
+    local managed_tmp
+    local multisite_tmp
+    local unused_tmp
+    managed_tmp=$(mktemp)
+    multisite_tmp=$(mktemp)
+    unused_tmp=$(mktemp)
+
+    sed 's/^[[:space:]]*//;s/[[:space:]]*$//' "$DOMAINS_FILE" | \
+        tr '[:upper:]' '[:lower:]' | \
+        sed '/^$/d' | sort -u > "$managed_tmp"
+
+    get_multisite_domains > "$multisite_tmp"
+    comm -23 "$managed_tmp" "$multisite_tmp" > "$unused_tmp"
+
+    local cleaned=0
+    local skipped=0
+
+    while IFS= read -r domain; do
+        [ -z "$domain" ] && continue
+        log INFO "Cleaning unused domain: $domain"
+        untrack_domain "$domain"
+        remove_ssl_vhost "$domain" || true
+        ((cleaned++))
+    done < "$unused_tmp"
+
+    if [ "$cleaned" -eq 0 ]; then
+        ((skipped++))
+        log INFO "No unused managed domains to clean"
+    fi
+
+    rm -f "$managed_tmp" "$multisite_tmp" "$unused_tmp"
+
+    log SUCCESS "Cleanup complete. Cleaned: $cleaned, Skipped: $skipped"
+    if [ "$JSON_OUTPUT" = true ]; then
+        json_output true "all" "cleanup-unused" "Cleanup complete. Cleaned: $cleaned, Skipped: $skipped"
+    fi
+
+    return 0
+}
+
 status_certificate() {
     local domain=$1
     
@@ -910,6 +1042,8 @@ Commands:
   renew-all            Renew all certificates expiring within $RENEWAL_DAYS days
   revoke <domain>      Revoke a certificate and remove SSL VirtualHost
   list                 List all managed certificates
+  audit-unused         Show managed domains not found in WordPress Multisite
+  cleanup-unused       Remove unused domains from tracking and SSL vhost files
   status <domain>      Show certificate status
   test <domain>        Test certificate issuance (dry-run)
 
@@ -921,6 +1055,7 @@ Options:
   --standalone         Use standalone mode (stops Apache)
   --webroot            Use webroot mode
   --no-restart         Don't auto-restart Apache
+  --confirm            Confirm destructive/sensitive cleanup commands
   --help               Show this help message
 
 Features:
@@ -936,6 +1071,8 @@ Examples:
   $(basename $0) renew example.com --json
   $(basename $0) test example.com --skip-dns
   $(basename $0) list
+  $(basename $0) audit-unused
+  $(basename $0) cleanup-unused --confirm
 
 Configuration: $CONFIG_FILE
 Logs: $LOG_FILE
@@ -990,6 +1127,10 @@ main() {
                 AUTO_APACHE_RESTART=false
                 shift
                 ;;
+            --confirm)
+                CONFIRM=true
+                shift
+                ;;
             --help)
                 show_usage
                 exit 0
@@ -1032,6 +1173,12 @@ main() {
             ;;
         list)
             list_certificates
+            ;;
+        audit-unused)
+            audit_unused_domains
+            ;;
+        cleanup-unused)
+            cleanup_unused_domains
             ;;
         status)
             if [ -z "$DOMAIN" ]; then
