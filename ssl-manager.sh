@@ -136,7 +136,10 @@ acquire_lock() {
 }
 
 validate_domain() {
-    local domain=$1
+    local domain="$1"
+    # Trim leading and trailing whitespace to handle accidental spaces.
+    domain="${domain#"${domain%%[![:space:]]*}"}"
+    domain="${domain%"${domain##*[![:space:]]}"}"
     if [[ ! "$domain" =~ ^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$ ]]; then
         error_exit "Invalid domain format: $domain" 2
     fi
@@ -147,6 +150,22 @@ validate_email() {
     if [[ ! "$email" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
         error_exit "Invalid email format: $email" 2
     fi
+}
+
+extract_certbot_error() {
+    local output="$1"
+    local reason
+
+    reason=$(printf '%s\n' "$output" | awk '
+        BEGIN { IGNORECASE=1 }
+        NF && first == "" { first=$0 }
+        /(error|failed|problem|unauthorized|invalid|refused|denied|timed out|timeout|nxdomain)/ { print; found=1; exit }
+        END { if (!found) print first }
+    ')
+
+    # Normalize whitespace for cleaner one-line logging/JSON messages.
+    reason=$(printf '%s' "$reason" | tr -s '[:space:]' ' ')
+    echo "$reason"
 }
 
 check_dependencies() {
@@ -565,13 +584,18 @@ issue_certificate() {
         
         return 0
     else
-        log ERROR "Failed to issue certificate"
-        echo "$output" | grep -E "(Error|Failed|Problem)" | head -5 | while read line; do
-            log ERROR "$line"
-        done
+        local reason
+        local error_message
+        reason=$(extract_certbot_error "$output")
+        error_message="Failed to issue certificate (exit code: $exit_code)"
+        if [ -n "$reason" ]; then
+            error_message="$error_message: $reason"
+        fi
+        error_message="$error_message. See Certbot logs in $LOGS_DIR"
+        log ERROR "$error_message"
         
         if [ "$JSON_OUTPUT" = true ]; then
-            json_output false "$domain" "issue" "Failed to issue certificate"
+            json_output false "$domain" "issue" "$error_message"
         fi
         
         return 4
@@ -632,10 +656,18 @@ renew_certificate() {
         
         return 0
     else
-        log ERROR "Failed to renew certificate"
+        local reason
+        local error_message
+        reason=$(extract_certbot_error "$output")
+        error_message="Failed to renew certificate (exit code: $exit_code)"
+        if [ -n "$reason" ]; then
+            error_message="$error_message: $reason"
+        fi
+        error_message="$error_message. See Certbot logs in $LOGS_DIR"
+        log ERROR "$error_message"
         
         if [ "$JSON_OUTPUT" = true ]; then
-            json_output false "$domain" "renew" "Failed to renew certificate"
+            json_output false "$domain" "renew" "$error_message"
         fi
         
         return 4
@@ -751,10 +783,18 @@ revoke_certificate() {
         
         return 0
     else
-        log ERROR "Failed to revoke certificate"
+        local reason
+        local error_message
+        reason=$(extract_certbot_error "$output")
+        error_message="Failed to revoke certificate (exit code: $exit_code)"
+        if [ -n "$reason" ]; then
+            error_message="$error_message: $reason"
+        fi
+        error_message="$error_message. See Certbot logs in $LOGS_DIR"
+        log ERROR "$error_message"
         
         if [ "$JSON_OUTPUT" = true ]; then
-            json_output false "$domain" "revoke" "Failed to revoke certificate"
+            json_output false "$domain" "revoke" "$error_message"
         fi
         
         return 4
